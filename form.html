@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>İletişim Formu - ECMail</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-page: #0b0f19;
+            --bg-card: rgba(18, 24, 38, 0.75);
+            --bg-input: rgba(255, 255, 255, 0.04);
+            --text-main: #f3f4f6;
+            --text-secondary: #9ca3af;
+            --text-muted: #6b7280;
+            --accent-primary: #3b82f6;
+            --accent-hover: #2563eb;
+            --accent-glow: rgba(59, 130, 246, 0.35);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --border-focus: rgba(59, 130, 246, 0.6);
+            --success: #10b981;
+            --error: #ef4444;
+            --radius: 16px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body {
+            background-color: var(--bg-page);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 24px;
+            background-image: 
+                radial-gradient(circle at 15% 15%, rgba(59, 130, 246, 0.12) 0%, transparent 45%),
+                radial-gradient(circle at 85% 85%, rgba(139, 92, 246, 0.12) 0%, transparent 45%);
+        }
+
+        .container {
+            width: 100%;
+            max-width: 520px;
+        }
+
+        .card {
+            background: var(--bg-card);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+            padding: 36px 32px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05);
+        }
+
+        .header {
+            margin-bottom: 28px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #ffffff 0%, #9ca3af 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header p {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            background: var(--bg-input);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 12px 16px;
+            font-size: 14px;
+            color: var(--text-main);
+            outline: none;
+            transition: all 0.2s ease;
+        }
+
+        .form-group input::placeholder,
+        .form-group textarea::placeholder {
+            color: var(--text-muted);
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            border-color: var(--border-focus);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 120px;
+        }
+
+        .btn-submit {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, var(--accent-primary) 0%, #2563eb 100%);
+            color: #ffffff;
+            border: none;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 4px 14px var(--accent-glow);
+            margin-top: 8px;
+        }
+
+        .btn-submit:hover {
+            opacity: 0.95;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px var(--accent-glow);
+        }
+
+        .btn-submit:active {
+            transform: translateY(0);
+        }
+
+        .btn-submit:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .alert {
+            padding: 14px 16px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .alert-success {
+            background: rgba(16, 185, 129, 0.15);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            color: #34d399;
+        }
+
+        .alert-error {
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #f87171;
+        }
+
+        .spinner {
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #ffffff;
+            animation: spin 0.8s linear infinite;
+            display: none;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="card">
+        <div class="header">
+            <h1>Bize Ulaşın</h1>
+            <p>Sorularınız veya görüşleriniz için formu doldurabilirsiniz.</p>
+        </div>
+
+        <div id="alertBox" class="alert"></div>
+
+        <form id="contactForm">
+            <div class="form-group">
+                <label for="name">Adınız Soyadınız</label>
+                <input type="text" id="name" name="name" placeholder="Örn: Ahmet Yılmaz" required>
+            </div>
+
+            <div class="form-group">
+                <label for="email">E-Posta Adresiniz</label>
+                <input type="email" id="email" name="email" placeholder="ahmet@example.com" required>
+            </div>
+
+            <div class="form-group">
+                <label for="subject">Konu</label>
+                <input type="text" id="subject" name="subject" placeholder="Mesajınızın konusu" required>
+            </div>
+
+            <div class="form-group">
+                <label for="message">Mesajınız</label>
+                <textarea id="message" name="message" placeholder="Mesajınızı buraya yazınız..." required></textarea>
+            </div>
+
+            <button type="submit" id="submitBtn" class="btn-submit">
+                <span class="spinner" id="btnSpinner"></span>
+                <span id="btnText">Gönder</span>
+            </button>
+        </form>
+    </div>
+</div>
+
+<script>
+    const form = document.getElementById('contactForm');
+    const submitBtn = document.getElementById('submitBtn');
+    const btnText = document.getElementById('btnText');
+    const btnSpinner = document.getElementById('btnSpinner');
+    const alertBox = document.getElementById('alertBox');
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        // UI Loading State
+        submitBtn.disabled = true;
+        btnSpinner.style.display = 'inline-block';
+        btnText.textContent = 'Gönderiliyor...';
+        alertBox.style.display = 'none';
+
+        const formData = new FormData(form);
+
+        try {
+            const response = await fetch('form_handler.php', {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await response.json();
+
+            if (result.status === 'success') {
+                alertBox.className = 'alert alert-success';
+                alertBox.textContent = result.message || 'Mesajınız başarıyla gönderildi!';
+                alertBox.style.display = 'block';
+                form.reset();
+            } else {
+                alertBox.className = 'alert alert-error';
+                alertBox.textContent = result.message || 'Bir hata oluştu. Lütfen tekrar deneyiniz.';
+                alertBox.style.display = 'block';
+            }
+        } catch (error) {
+            alertBox.className = 'alert alert-error';
+            alertBox.textContent = 'Sunucuya bağlanırken bir hata oluştu.';
+            alertBox.style.display = 'block';
+        } finally {
+            submitBtn.disabled = false;
+            btnSpinner.style.display = 'none';
+            btnText.textContent = 'Gönder';
+        }
+    });
+</script>
+
+</body>
+</html>
