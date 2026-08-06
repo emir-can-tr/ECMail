@@ -5,6 +5,7 @@
  * Özellikler:
  * - Harici bağımlılık gerektirmez (PHPMailer, Composer, php-imap vb. OLMADAN çalışır).
  * - Tüm e-posta sağlayıcılarıyla (Alastyr, Natro, cPanel/Exim, Gmail, Yandex, Microsoft vb.) %100 uyumludur.
+ * - PHP 5.4 - PHP 8.4+ arasındaki TÜM PHP sürümleriyle evrensel uyumludur (PHP 5.4, 5.5, 5.6, 7.0, 7.1, 7.2, 7.3, 7.4, 8.0, 8.1, 8.2, 8.3, 8.4+).
  * - .env dosyalarından otomatik yapılandırma okur. Güvenlik için dosya içinde şifre barındırmaz.
  * - Çok satırlı (multi-line) EHLO ve 220 banner yanıtlarını hatasız işler.
  * - SSL (465), STARTTLS (587/25) ve Düz TCP modlarını destekler.
@@ -12,8 +13,15 @@
  * - php-imap eklentisine İHTİYAÇ DUYMADAN hem IMAP hem POP3 ile gelen kutusunu okur.
  */
 
+// PHP 8.0 öncesi eski PHP sürümleri için str_starts_with polifili (PHP 5.4 - 7.4 Evrensel Uyumluluk)
+if (!function_exists('str_starts_with')) {
+    function str_starts_with($haystack, $needle) {
+        return (string)$needle !== '' && strncmp($haystack, $needle, strlen($needle)) === 0;
+    }
+}
+
 class ECMail {
-    private array $config = [
+    private $config = array(
         'smtp_host'   => '',
         'smtp_port'   => 465,
         'pop3_host'   => '',
@@ -26,18 +34,18 @@ class ECMail {
         'from_name'   => '',
         'default_to'  => '',
         'timeout'     => 30
-    ];
+    );
 
-    private string $lastError = '';
+    private $lastError = '';
 
     /**
      * @param array $config Opsiyonel yapılandırma dizisi (Verilmezse .env dosyasından okur)
      * @param string|null $envPath Özel .env dosya yolu
      */
-    public function __construct(array $config = [], ?string $envPath = null) {
+    public function __construct($config = array(), $envPath = null) {
         $this->loadEnvConfig($envPath);
 
-        if (!empty($config)) {
+        if (!empty($config) && is_array($config)) {
             $this->config = array_merge($this->config, $config);
         }
 
@@ -54,14 +62,17 @@ class ECMail {
 
     /**
      * .env dosyasından ve ortam değişkenlerinden yapılandırmayı yükler
+     * 
+     * @param string|null $envPath
      */
-    private function loadEnvConfig(?string $envPath = null): void {
-        $possiblePaths = array_filter([
+    private function loadEnvConfig($envPath = null) {
+        $docRootEnv = isset($_SERVER['DOCUMENT_ROOT']) ? $_SERVER['DOCUMENT_ROOT'] . '/.env' : null;
+        $possiblePaths = array_filter(array(
             $envPath,
             __DIR__ . '/.env',
             dirname(__DIR__) . '/.env',
-            $_SERVER['DOCUMENT_ROOT'] . '/.env' ?? null
-        ]);
+            $docRootEnv
+        ));
 
         foreach ($possiblePaths as $path) {
             if ($path && file_exists($path) && is_readable($path)) {
@@ -73,11 +84,11 @@ class ECMail {
         // Ortam değişkenlerinden yükle
         $this->config['smtp_host']  = $this->getEnvVar('SMTP_HOST', $this->config['smtp_host']);
         $this->config['smtp_port']  = (int)$this->getEnvVar('SMTP_PORT', $this->config['smtp_port']);
-        $this->config['username']   = $this->getEnvVar(['SMTP_USERNAME', 'SMTP_USER', 'MAIL_USERNAME'], $this->config['username']);
-        $this->config['password']   = $this->getEnvVar(['SMTP_PASSWORD', 'SMTP_PASS', 'MAIL_PASSWORD'], $this->config['password']);
-        $this->config['from_email'] = $this->getEnvVar(['SMTP_FROM_EMAIL', 'MAIL_FROM_ADDRESS'], $this->config['from_email']);
-        $this->config['from_name']  = $this->getEnvVar(['SMTP_FROM_NAME', 'MAIL_FROM_NAME'], $this->config['from_name']);
-        $this->config['default_to'] = $this->getEnvVar(['SMTP_DEFAULT_TO', 'MAIL_DEFAULT_TO'], $this->config['default_to']);
+        $this->config['username']   = $this->getEnvVar(array('SMTP_USERNAME', 'SMTP_USER', 'MAIL_USERNAME'), $this->config['username']);
+        $this->config['password']   = $this->getEnvVar(array('SMTP_PASSWORD', 'SMTP_PASS', 'MAIL_PASSWORD'), $this->config['password']);
+        $this->config['from_email'] = $this->getEnvVar(array('SMTP_FROM_EMAIL', 'MAIL_FROM_ADDRESS'), $this->config['from_email']);
+        $this->config['from_name']  = $this->getEnvVar(array('SMTP_FROM_NAME', 'MAIL_FROM_NAME'), $this->config['from_name']);
+        $this->config['default_to'] = $this->getEnvVar(array('SMTP_DEFAULT_TO', 'MAIL_DEFAULT_TO'), $this->config['default_to']);
         
         $this->config['pop3_host']  = $this->getEnvVar('POP3_HOST', $this->config['smtp_host']);
         $this->config['pop3_port']  = (int)$this->getEnvVar('POP3_PORT', $this->config['pop3_port']);
@@ -85,7 +96,10 @@ class ECMail {
         $this->config['imap_port']  = (int)$this->getEnvVar('IMAP_PORT', $this->config['imap_port']);
     }
 
-    private function parseEnvFile(string $filePath): void {
+    /**
+     * @param string $filePath
+     */
+    private function parseEnvFile($filePath) {
         $lines = file($filePath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
         if ($lines === false) return;
 
@@ -105,7 +119,12 @@ class ECMail {
         }
     }
 
-    private function getEnvVar(string|array $keys, mixed $default = ''): mixed {
+    /**
+     * @param string|array $keys
+     * @param mixed $default
+     * @return mixed
+     */
+    private function getEnvVar($keys, $default = '') {
         $keyList = (array)$keys;
         foreach ($keyList as $key) {
             if (isset($_ENV[$key]) && $_ENV[$key] !== '') return $_ENV[$key];
@@ -116,12 +135,21 @@ class ECMail {
         return $default;
     }
 
-    public function getLastError(): string {
+    /**
+     * @return string
+     */
+    public function getLastError() {
         return $this->lastError;
     }
 
-    public function setConfig(array $config): self {
-        $this->config = array_merge($this->config, $config);
+    /**
+     * @param array $config
+     * @return $this
+     */
+    public function setConfig($config = array()) {
+        if (is_array($config)) {
+            $this->config = array_merge($this->config, $config);
+        }
         return $this;
     }
 
@@ -129,15 +157,19 @@ class ECMail {
     // 1. GÖNDERİM İŞLEMLERİ (SMTP)
     // =========================================================================
 
-    public function send(array $params): bool {
-        $to = $params['to'] ?? $this->config['default_to'];
-        $subject = $params['subject'] ?? '';
-        $body = $params['body'] ?? '';
-        $isHtml = $params['is_html'] ?? true;
-        $cc = (array)($params['cc'] ?? []);
-        $bcc = (array)($params['bcc'] ?? []);
-        $replyTo = $params['reply_to'] ?? '';
-        $attachments = (array)($params['attachments'] ?? []);
+    /**
+     * @param array $params
+     * @return bool
+     */
+    public function send($params = array()) {
+        $to = isset($params['to']) ? $params['to'] : $this->config['default_to'];
+        $subject = isset($params['subject']) ? $params['subject'] : '';
+        $body = isset($params['body']) ? $params['body'] : '';
+        $isHtml = isset($params['is_html']) ? $params['is_html'] : true;
+        $cc = (array)(isset($params['cc']) ? $params['cc'] : array());
+        $bcc = (array)(isset($params['bcc']) ? $params['bcc'] : array());
+        $replyTo = isset($params['reply_to']) ? $params['reply_to'] : '';
+        $attachments = (array)(isset($params['attachments']) ? $params['attachments'] : array());
 
         if (empty($to) || empty($subject) || empty($body)) {
             $this->lastError = 'Alıcı (to), Konu (subject) ve İçerik (body) zorunludur.';
@@ -159,13 +191,13 @@ class ECMail {
                 ? $_SERVER['SERVER_NAME'] 
                 : (!empty($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : 'localhost');
 
-            $context = stream_context_create([
-                'ssl' => [
+            $context = stream_context_create(array(
+                'ssl' => array(
                     'verify_peer' => false,
                     'verify_peer_name' => false,
                     'allow_self_signed' => true
-                ]
-            ]);
+                )
+            ));
 
             $protocol = ($port === 465) ? 'ssl://' : '';
             $socket = @stream_socket_client($protocol . $host . ':' . $port, $errno, $errstr, $this->config['timeout'], STREAM_CLIENT_CONNECT, $context);
@@ -272,7 +304,7 @@ class ECMail {
 
             // 8. Headers ve İçerik
             $boundary = "----=_NextPart_" . md5(uniqid((string)time(), true));
-            $headers = [];
+            $headers = array();
             $headers[] = "MIME-Version: 1.0";
             $headers[] = "Date: " . date("r");
             $headers[] = "From: " . $this->encodeHeader($this->config['from_name']) . " <" . $this->config['from_email'] . ">";
@@ -290,13 +322,14 @@ class ECMail {
                 $emailContent .= "--$boundary\r\n";
                 $emailContent .= "Content-Type: " . ($isHtml ? "text/html" : "text/plain") . "; charset=UTF-8\r\n";
                 $emailContent .= "Content-Transfer-Encoding: 8bit\r\n\r\n";
-                $emailContent .= str_replace(["\r\n", "\r", "\n"], "\r\n", $body) . "\r\n\r\n";
+                $emailContent .= str_replace(array("\r\n", "\r", "\n"), "\r\n", $body) . "\r\n\r\n";
 
                 foreach ($attachments as $filePath) {
                     if (file_exists($filePath)) {
                         $fileName = basename($filePath);
                         $fileData = chunk_split(base64_encode(file_get_contents($filePath)));
-                        $mimeType = mime_content_type($filePath) ?: 'application/octet-stream';
+                        $mimeType = function_exists('mime_content_type') ? mime_content_type($filePath) : 'application/octet-stream';
+                        if (!$mimeType) $mimeType = 'application/octet-stream';
 
                         $emailContent .= "--$boundary\r\n";
                         $emailContent .= "Content-Type: $mimeType; name=\"$fileName\"\r\n";
@@ -309,7 +342,7 @@ class ECMail {
             } else {
                 $headers[] = "Content-Type: " . ($isHtml ? "text/html" : "text/plain") . "; charset=UTF-8";
                 $headers[] = "Content-Transfer-Encoding: 8bit";
-                $emailContent = str_replace(["\r\n", "\r", "\n"], "\r\n", $body);
+                $emailContent = str_replace(array("\r\n", "\r", "\n"), "\r\n", $body);
             }
 
             $headersStr = implode("\r\n", $headers);
@@ -339,16 +372,23 @@ class ECMail {
      * @param string|null $overrideTo Alıcı adresini değiştirmek istenirse
      * @return array ['status' => 'success'|'error', 'message' => '...']
      */
-    public function handleFormSubmit(array $postData = [], ?string $overrideTo = null): array {
+    public function handleFormSubmit($postData = array(), $overrideTo = null) {
         $data = !empty($postData) ? $postData : $_POST;
 
-        $email   = filter_var($data['email'] ?? '', FILTER_SANITIZE_EMAIL);
-        $name    = htmlspecialchars(trim($data['name'] ?? $data['fullname'] ?? 'İsimsiz Gönderici'));
-        $subject = htmlspecialchars(trim($data['subject'] ?? 'Yeni Form Mesajı'));
-        $message = htmlspecialchars(trim($data['message'] ?? $data['content'] ?? ''));
+        $rawEmail = isset($data['email']) ? $data['email'] : '';
+        $email   = filter_var($rawEmail, FILTER_SANITIZE_EMAIL);
+        
+        $rawName = isset($data['name']) ? $data['name'] : (isset($data['fullname']) ? $data['fullname'] : 'İsimsiz Gönderici');
+        $name    = htmlspecialchars(trim($rawName));
+        
+        $rawSubject = isset($data['subject']) ? $data['subject'] : 'Yeni Form Mesajı';
+        $subject = htmlspecialchars(trim($rawSubject));
+        
+        $rawMessage = isset($data['message']) ? $data['message'] : (isset($data['content']) ? $data['content'] : '');
+        $message = htmlspecialchars(trim($rawMessage));
 
         if (empty($message)) {
-            return ['status' => 'error', 'message' => 'Lütfen mesaj alanını doldurunuz.'];
+            return array('status' => 'error', 'message' => 'Lütfen mesaj alanını doldurunuz.');
         }
 
         $htmlBody = "
@@ -373,11 +413,11 @@ class ECMail {
                 <div class='content'>
                     <div class='field'>
                         <div class='field-title'>Gönderen Adı</div>
-                        <div class='field-value'>" . ($name ?: 'Belirtilmedi') . "</div>
+                        <div class='field-value'>" . ($name ? $name : 'Belirtilmedi') . "</div>
                     </div>
                     <div class='field'>
                         <div class='field-title'>E-Posta Adresi</div>
-                        <div class='field-value'>" . ($email ?: 'Belirtilmedi') . "</div>
+                        <div class='field-value'>" . ($email ? $email : 'Belirtilmedi') . "</div>
                     </div>
                     <div class='field'>
                         <div class='field-title'>Konu</div>
@@ -393,12 +433,12 @@ class ECMail {
         </body>
         </html>";
 
-        $params = [
+        $params = array(
             'subject'  => "Form: $subject",
             'body'     => $htmlBody,
             'is_html'  => true,
             'reply_to' => $email
-        ];
+        );
 
         if (!empty($overrideTo)) {
             $params['to'] = $overrideTo;
@@ -407,13 +447,13 @@ class ECMail {
         $sent = $this->send($params);
 
         if ($sent) {
-            return ['status' => 'success', 'message' => 'Mesajınız başarıyla iletildi!'];
+            return array('status' => 'success', 'message' => 'Mesajınız başarıyla iletildi!');
         } else {
-            return ['status' => 'error', 'message' => $this->getLastError()];
+            return array('status' => 'error', 'message' => $this->getLastError());
         }
     }
 
-    private function getSmtpResponse($socket): string {
+    private function getSmtpResponse($socket) {
         $response = '';
         while ($line = fgets($socket, 512)) {
             $response .= $line;
@@ -427,7 +467,7 @@ class ECMail {
         return $response;
     }
 
-    private function encodeHeader(string $str): string {
+    private function encodeHeader($str) {
         if (mb_detect_encoding($str, 'ASCII', true)) {
             return $str;
         }
@@ -441,8 +481,12 @@ class ECMail {
     /**
      * Gelen kutusundan e-postaları çeker.
      * Hangi protokol istenirse (varsayılan: 'pop3' veya 'imap') eklentisiz soket ile çeker.
+     * 
+     * @param int $limit
+     * @param string $protocol
+     * @return array
      */
-    public function fetchEmails(int $limit = 10, string $protocol = 'pop3'): array {
+    public function fetchEmails($limit = 10, $protocol = 'pop3') {
         if (strtolower($protocol) === 'imap') {
             return $this->fetchViaImapSocket($limit);
         }
@@ -452,24 +496,24 @@ class ECMail {
     /**
      * Saf Soket IMAP ile E-Posta Okuma (php-imap eklentisi gerektirmez!)
      */
-    private function fetchViaImapSocket(int $limit): array {
+    private function fetchViaImapSocket($limit) {
         $host = $this->config['imap_host'];
         $port = (int)$this->config['imap_port'];
 
-        $context = stream_context_create([
-            'ssl' => [
+        $context = stream_context_create(array(
+            'ssl' => array(
                 'verify_peer' => false,
                 'verify_peer_name' => false,
                 'allow_self_signed' => true
-            ]
-        ]);
+            )
+        ));
 
         $protocolPrefix = ($port === 993) ? 'ssl://' : '';
         $socket = @stream_socket_client($protocolPrefix . $host . ':' . $port, $errno, $errstr, $this->config['timeout'], STREAM_CLIENT_CONNECT, $context);
 
         if (!$socket) {
             $this->lastError = "IMAP Soket Bağlantı Hatası ($host:$port): $errstr ($errno)";
-            return [];
+            return array();
         }
 
         // Welcome banner
@@ -481,7 +525,7 @@ class ECMail {
         if (strpos($res, 'A01 OK') === false) {
             fclose($socket);
             $this->lastError = "IMAP Giriş Hatası: " . trim($res);
-            return [];
+            return array();
         }
 
         // SELECT INBOX
@@ -490,12 +534,12 @@ class ECMail {
         
         // Exists sayısını bul
         preg_match('/\* (\d+) EXISTS/i', $res, $matches);
-        $totalEmails = (int)($matches[1] ?? 0);
+        $totalEmails = (int)(isset($matches[1]) ? $matches[1] : 0);
 
         if ($totalEmails === 0) {
             fputs($socket, "A03 LOGOUT\r\n");
             fclose($socket);
-            return [];
+            return array();
         }
 
         $start = max(1, $totalEmails - $limit + 1);
@@ -507,10 +551,11 @@ class ECMail {
 
         // Raw parçalama
         $emailBlocks = explode('* ', $res);
-        $results = [];
+        $results = array();
         $id = 1;
         foreach ($emailBlocks as $block) {
-            if (empty(trim($block))) continue;
+            $trimmed = trim($block);
+            if (empty($trimmed)) continue;
             $parsed = $this->parseRawEmail($block);
             if (!empty($parsed['subject']) || !empty($parsed['from'])) {
                 $parsed['id'] = $id++;
@@ -521,7 +566,7 @@ class ECMail {
         return array_reverse(array_slice($results, 0, $limit));
     }
 
-    private function getImapResponse($socket, string $tag): string {
+    private function getImapResponse($socket, $tag) {
         $response = '';
         while ($line = fgets($socket, 2048)) {
             $response .= $line;
@@ -535,31 +580,31 @@ class ECMail {
     /**
      * Saf Soket POP3 ile E-Posta Okuma (php-imap eklentisi gerektirmez!)
      */
-    private function fetchViaPop3Socket(int $limit): array {
+    private function fetchViaPop3Socket($limit) {
         $host = $this->config['pop3_host'];
         $port = (int)$this->config['pop3_port'];
         
-        $context = stream_context_create([
-            'ssl' => [
+        $context = stream_context_create(array(
+            'ssl' => array(
                 'verify_peer' => false,
                 'verify_peer_name' => false,
                 'allow_self_signed' => true
-            ]
-        ]);
+            )
+        ));
 
         $protocol = ($port === 995) ? 'ssl://' : '';
         $socket = @stream_socket_client($protocol . $host . ':' . $port, $errno, $errstr, $this->config['timeout'], STREAM_CLIENT_CONNECT, $context);
 
         if (!$socket) {
             $this->lastError = "POP3 Bağlantı Hatası ($host:$port): $errstr ($errno)";
-            return [];
+            return array();
         }
 
         $res = fgets($socket, 512);
         if (substr($res, 0, 3) !== '+OK') {
             fclose($socket);
             $this->lastError = "POP3 Sunucu Hatası: " . trim($res);
-            return [];
+            return array();
         }
 
         fputs($socket, "USER " . $this->config['username'] . "\r\n");
@@ -567,7 +612,7 @@ class ECMail {
         if (substr($res, 0, 3) !== '+OK') {
             fclose($socket);
             $this->lastError = "POP3 Kullanıcı Adı Reddedildi: " . trim($res);
-            return [];
+            return array();
         }
 
         fputs($socket, "PASS " . $this->config['password'] . "\r\n");
@@ -575,21 +620,21 @@ class ECMail {
         if (substr($res, 0, 3) !== '+OK') {
             fclose($socket);
             $this->lastError = "POP3 Şifre Reddedildi: " . trim($res);
-            return [];
+            return array();
         }
 
         fputs($socket, "STAT\r\n");
         $res = fgets($socket, 512);
         $parts = explode(' ', trim($res));
-        $totalEmails = (int)($parts[1] ?? 0);
+        $totalEmails = (int)(isset($parts[1]) ? $parts[1] : 0);
 
         if ($totalEmails === 0) {
             fputs($socket, "QUIT\r\n");
             fclose($socket);
-            return [];
+            return array();
         }
 
-        $results = [];
+        $results = array();
         $start = max(1, $totalEmails - $limit + 1);
 
         for ($i = $totalEmails; $i >= $start; $i--) {
@@ -614,12 +659,12 @@ class ECMail {
         return $results;
     }
 
-    private function parseRawEmail(string $raw): array {
+    private function parseRawEmail($raw) {
         $parts = explode("\r\n\r\n", $raw, 2);
-        $headerStr = $parts[0] ?? '';
-        $body = $parts[1] ?? '';
+        $headerStr = isset($parts[0]) ? $parts[0] : '';
+        $body = isset($parts[1]) ? $parts[1] : '';
 
-        $headers = [];
+        $headers = array();
         $lines = explode("\r\n", $headerStr);
         foreach ($lines as $line) {
             if (preg_match('/^([^:]+):\s*(.*)$/', $line, $matches)) {
@@ -627,12 +672,16 @@ class ECMail {
             }
         }
 
-        return [
-            'subject' => isset($headers['subject']) ? iconv_mime_decode($headers['subject'], 0, 'UTF-8') : '',
-            'from'    => isset($headers['from']) ? iconv_mime_decode($headers['from'], 0, 'UTF-8') : '',
-            'date'    => $headers['date'] ?? '',
+        $subj = isset($headers['subject']) ? iconv_mime_decode($headers['subject'], 0, 'UTF-8') : '';
+        $from = isset($headers['from']) ? iconv_mime_decode($headers['from'], 0, 'UTF-8') : '';
+        $date = isset($headers['date']) ? $headers['date'] : '';
+
+        return array(
+            'subject' => $subj ? $subj : '',
+            'from'    => $from ? $from : '',
+            'date'    => $date,
             'body'    => trim($body)
-        ];
+        );
     }
 }
 ?>

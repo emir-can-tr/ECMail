@@ -45,7 +45,7 @@ $customMail->send([
  * YÖNTEM 3: Gelen Kutusu Okuma / Alma (POP3 & IMAP)
  */
 /*
-$gelenMails = $mail->fetchEmails(limit: 10);
+$gelenMails = $mail->fetchEmails(10);
 foreach ($gelenMails as $msg) {
     echo "Gönderen: " . $msg['from'] . " | Konu: " . $msg['subject'] . "\n";
 }

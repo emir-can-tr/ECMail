@@ -1,9 +1,9 @@
 # ECMail - Universal PHP Email Sending and Receiving Library
 
-[![PHP Version](https://img.shields.io/badge/PHP-%E2%89%A5%208.0-777BB4.svg)](https://www.php.net/)
+[![PHP Version](https://img.shields.io/badge/PHP-5.4%20--%208.4%2B-777BB4.svg)](https://www.php.net/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Dependencies](https://img.shields.io/badge/Dependencies-Zero-blue.svg)](#)
-[![PHP 8.4 Ready](https://img.shields.io/badge/PHP%208.4-Compatible-brightgreen.svg)](#)
+[![PHP Universal Compatibility](https://img.shields.io/badge/PHP%205%20%7C%207%20%7C%208-Compatible-brightgreen.svg)](#)
 
 [Türkçe Dokümantasyon](README.md) | **English Documentation**
 
